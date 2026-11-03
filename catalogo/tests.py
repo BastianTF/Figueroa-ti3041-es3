@@ -116,6 +116,50 @@ class AdministracionProductosTests(TestCase):
 			f"/eliminar/{self.producto.pk}/",
 		)
 
+	def test_reporte_agregacion_resume_productos_por_categoria(self):
+		Producto.objects.create(
+			nombre="Otra herramienta",
+			categoria="Herramientas",
+			precio=25000,
+			stock=4,
+		)
+
+		respuesta = self.client.get(reverse("catalogo:reporte_agregacion"))
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertContains(respuesta, "Reporte 1: Resumen por Categoría (Agregación ORM)")
+		fila = respuesta.context["reporte"].get(categoria="Herramientas")
+		self.assertEqual(fila["total_productos"], 2)
+		self.assertEqual(fila["promedio_precio"], 20000)
+		self.assertEqual(fila["stock_total"], 7)
+
+	def test_reporte_filtrado_muestra_solo_stock_menor_a_cinco(self):
+		Producto.objects.create(
+			nombre="Stock límite",
+			categoria="Herramientas",
+			precio=1000,
+			stock=5,
+		)
+
+		respuesta = self.client.get(reverse("catalogo:reporte_filtrado"))
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertContains(respuesta, "Producto existente")
+		self.assertNotContains(respuesta, "Stock límite")
+		self.assertEqual(
+			list(respuesta.context["productos"].values_list("pk", flat=True)),
+			[self.producto.pk],
+		)
+
+	def test_reportes_requieren_acceso_de_administrador(self):
+		self.client.logout()
+
+		for nombre_ruta in ("reporte_agregacion", "reporte_filtrado"):
+			with self.subTest(reporte=nombre_ruta):
+				respuesta = self.client.get(reverse(f"catalogo:{nombre_ruta}"))
+				self.assertEqual(respuesta.status_code, 302)
+				self.assertTrue(respuesta.url.startswith(reverse("catalogo:login")))
+
 	def test_crear_producto_con_formulario(self):
 		respuesta = self.client.post(
 			reverse("catalogo:admin_producto_nuevo"),

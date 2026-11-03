@@ -8,7 +8,11 @@
             <span class="kicker">Panel privado</span>
             <h1>Administración de la ferretería</h1>
         </div>
-        <a class="btn btn-primary" href="{% url 'catalogo:admin_producto_nuevo' %}">+ Agregar producto</a>
+        <div class="admin-actions">
+            <a class="btn btn-secondary" href="{% url 'catalogo:reporte_agregacion' %}">Reporte por categoría</a>
+            <a class="btn btn-secondary" href="{% url 'catalogo:reporte_filtrado' %}">Stock crítico</a>
+            <a class="btn btn-primary" href="{% url 'catalogo:admin_producto_nuevo' %}">+ Agregar producto</a>
+        </div>
     </div>
 
     <div class="admin-stats">

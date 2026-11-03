@@ -45,6 +45,10 @@
             <a href="{% url 'catalogo:ofertas' %}">Ofertas</a>
             <a href="#">Nuevo en Ferretería</a>
             <a href="#">Servicios</a>
+            {% if user.is_staff %}
+                <a href="{% url 'catalogo:reporte_agregacion' %}">Reporte Categorías</a>
+                <a href="{% url 'catalogo:reporte_filtrado' %}">Stock Crítico</a>
+            {% endif %}
         </nav>
     </header>
 

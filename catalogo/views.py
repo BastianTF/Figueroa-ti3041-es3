@@ -7,7 +7,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Avg, Count, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import ProductoForm
@@ -341,6 +341,26 @@ def admin_productos(request):
         request,
         "catalogo/admin_productos.html",
         {"productos": Producto.objects.order_by("id")},
+    )
+
+
+@user_passes_test(_es_administrador, login_url="catalogo:login")
+def reporte_agregacion(request):
+    reporte = Producto.objects.values("categoria").annotate(
+        total_productos=Count("id"),
+        promedio_precio=Avg("precio"),
+        stock_total=Sum("stock"),
+    ).order_by("categoria")
+    return render(request, "catalogo/reporte_agregacion.html", {"reporte": reporte})
+
+
+@user_passes_test(_es_administrador, login_url="catalogo:login")
+def reporte_filtrado(request):
+    productos_criticos = Producto.objects.filter(stock__lt=5).order_by("stock", "id")
+    return render(
+        request,
+        "catalogo/reporte_filtrado.html",
+        {"productos": productos_criticos},
     )
 
 
