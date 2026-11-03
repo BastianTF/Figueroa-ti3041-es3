@@ -43,6 +43,7 @@
                 <span aria-hidden="true">☰</span> Categorías
             </button>
             <a href="{% url 'catalogo:ofertas' %}">Ofertas</a>
+            <a href="{% url 'catalogo:contacto' %}">Contacto</a>
             <a href="#">Nuevo en Ferretería</a>
             <a href="#">Servicios</a>
             {% if user.is_staff %}
@@ -83,6 +84,10 @@
     <main>
         {% block contenido %}{% endblock %}
     </main>
+
+    {% if visitas %}
+        <p class="text-muted">Has visitado esta página {{ visitas }} veces en esta sesión.</p>
+    {% endif %}
 
     <script>
         (() => {

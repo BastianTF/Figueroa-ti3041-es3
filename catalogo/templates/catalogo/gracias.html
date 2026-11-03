@@ -1,0 +1,13 @@
+{% extends "catalogo/base.html" %}
+{% block titulo %}Gracias por tu consulta{% endblock %}
+{% block contenido %}
+<div class="auth-page">
+    <div class="auth-card">
+        <span class="kicker">Consulta enviada</span>
+        <div class="message message-success">
+            <h2>{{ mensaje }}</h2>
+        </div>
+        <a href="{% url 'catalogo:lista_productos' %}" class="btn btn-primary">Volver al Catálogo</a>
+    </div>
+</div>
+{% endblock %}

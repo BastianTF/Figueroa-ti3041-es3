@@ -5,7 +5,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Producto
+from .models import ConsultaCliente, Producto
 
 
 class CatalogoTests(TestCase):
@@ -36,6 +36,45 @@ class CatalogoTests(TestCase):
 		self.assertContains(respuesta, "Taladro de prueba")
 		self.assertContains(respuesta, "Martillo de prueba")
 		self.assertEqual(respuesta.context["total_productos"], 2)
+
+	def test_contador_de_visitas_se_incrementa_en_la_sesion(self):
+		respuesta = self.client.get(reverse("catalogo:lista_productos"))
+		self.assertEqual(respuesta.context["visitas"], 1)
+
+		respuesta = self.client.get(reverse("catalogo:lista_productos"))
+		self.assertEqual(respuesta.context["visitas"], 2)
+
+	def test_contacto_guarda_consulta_y_muestra_confirmacion(self):
+		respuesta = self.client.post(
+			reverse("catalogo:contacto"),
+			{
+				"nombre": "Cliente",
+				"correo": "cliente@example.com",
+				"mensaje": "Quisiera más información.",
+				"producto_interes": self.producto.pk,
+			},
+		)
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertTemplateUsed(respuesta, "catalogo/gracias.html")
+		self.assertContains(respuesta, "Nos pondremos en contacto pronto")
+		consulta = ConsultaCliente.objects.get()
+		self.assertEqual(consulta.producto_interes, self.producto)
+
+	def test_contacto_no_guarda_consulta_invalida(self):
+		respuesta = self.client.post(
+			reverse("catalogo:contacto"),
+			{
+				"nombre": "Cliente",
+				"correo": "correo-invalido",
+				"mensaje": "Consulta",
+				"producto_interes": "",
+			},
+		)
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertTemplateUsed(respuesta, "catalogo/contacto.html")
+		self.assertEqual(ConsultaCliente.objects.count(), 0)
 
 	def test_pagina_de_ofertas_muestra_productos_con_descuento(self):
 		respuesta = self.client.get(reverse("catalogo:ofertas"))
@@ -217,3 +256,26 @@ class AdministracionProductosTests(TestCase):
 			respuesta,
 			f"{reverse('catalogo:login')}?next={reverse('catalogo:admin_producto_nuevo')}",
 		)
+
+
+class ConsultaClienteTests(TestCase):
+	def test_consulta_se_guarda_y_conserva_si_se_elimina_el_producto(self):
+		producto = Producto.objects.create(
+			nombre="Producto consultado",
+			categoria="Herramientas",
+			precio=12000,
+			stock=2,
+		)
+		consulta = ConsultaCliente.objects.create(
+			nombre="Cliente de prueba",
+			correo="cliente@example.com",
+			mensaje="¿Está disponible?",
+			producto_interes=producto,
+		)
+
+		self.assertEqual(str(consulta), "Cliente de prueba - cliente@example.com")
+		self.assertIsNotNone(consulta.fecha)
+
+		producto.delete()
+		consulta.refresh_from_db()
+		self.assertIsNone(consulta.producto_interes)

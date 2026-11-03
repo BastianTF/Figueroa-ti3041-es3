@@ -10,7 +10,7 @@ from django.db import transaction
 from django.db.models import Avg, Count, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import ProductoForm
+from .forms import ConsultaClienteForm, ProductoForm
 from .models import Producto
 
 VENTAS_PATH = Path(__file__).resolve().parent / "data" / "ventas.json"
@@ -32,6 +32,9 @@ def _es_administrador(user):
 
 
 def lista(request):
+    visitas = request.session.get("contador_visitas", 0) + 1
+    request.session["contador_visitas"] = visitas
+
     productos = Producto.objects.order_by("id")
     total_productos = productos.count()
     total_con_stock = productos.filter(stock__gt=0).count()
@@ -41,12 +44,25 @@ def lista(request):
         "total_productos": total_productos,
         "total_con_stock": total_con_stock,
         "total_sin_stock": total_productos - total_con_stock,
+        "visitas": visitas,
         "producto_destacado": Producto.objects.filter(
             descuento__gt=0,
             precio_oferta__isnull=False,
         ).order_by("id").first(),
     }
     return render(request, "catalogo/lista.html", contexto)
+
+
+def contacto_cliente(request):
+    form = ConsultaClienteForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return render(
+            request,
+            "catalogo/gracias.html",
+            {"mensaje": "¡Gracias por tu consulta! Nos pondremos en contacto pronto."},
+        )
+    return render(request, "catalogo/contacto.html", {"form": form})
 
 
 def ofertas(request):

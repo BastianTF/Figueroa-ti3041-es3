@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Producto
+from .models import ConsultaCliente, Producto
 
 
 class ProductoForm(forms.ModelForm):
@@ -51,3 +51,15 @@ class ProductoForm(forms.ModelForm):
             caracteristicas = [f"Categoría: {self.cleaned_data['categoria']}"]
         self.instance.caracteristicas = caracteristicas
         return super().save(commit=commit)
+
+
+class ConsultaClienteForm(forms.ModelForm):
+    class Meta:
+        model = ConsultaCliente
+        fields = ["nombre", "correo", "mensaje", "producto_interes"]
+        widgets = {
+            "nombre": forms.TextInput(attrs={"class": "form-control"}),
+            "correo": forms.EmailInput(attrs={"class": "form-control"}),
+            "mensaje": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
+            "producto_interes": forms.Select(attrs={"class": "form-control"}),
+        }

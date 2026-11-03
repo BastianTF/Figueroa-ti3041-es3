@@ -1,0 +1,16 @@
+{% extends "catalogo/base.html" %}
+{% block titulo %}Contacto{% endblock %}
+{% block contenido %}
+<div class="auth-page">
+    <div class="auth-card">
+        <span class="kicker">Estamos para ayudarte</span>
+        <h1>Formulario de Contacto / Consultas</h1>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="btn btn-success">Enviar Consulta</button>
+        </form>
+        <a href="{% url 'catalogo:lista_productos' %}" class="btn btn-secondary mt-3">Volver al Listado</a>
+    </div>
+</div>
+{% endblock %}
