@@ -10,6 +10,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
+from .forms import ProductoForm
 from .models import Producto
 
 VENTAS_PATH = Path(__file__).resolve().parent / "data" / "ventas.json"
@@ -290,73 +291,48 @@ def admin_panel(request):
 
 @user_passes_test(_es_administrador, login_url="catalogo:login")
 def admin_producto_nuevo(request):
-    if request.method == "POST":
-        nombre = request.POST.get("nombre", "").strip()
-        categoria = request.POST.get("categoria", "").strip()
-        imagen = request.POST.get("imagen", "").strip()
-        caracteristicas = [line.strip() for line in request.POST.get("caracteristicas", "").splitlines() if line.strip()]
-        try:
-            precio = int(request.POST.get("precio", "0"))
-            stock = int(request.POST.get("stock", "0"))
-        except ValueError:
-            messages.error(request, "Precio y stock deben ser números enteros.")
-            return render(request, "catalogo/admin_producto_form.html", {"modo": "Crear"})
+    form = ProductoForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Producto creado correctamente.")
+        return redirect("catalogo:admin_productos")
 
-        if not nombre or not categoria or precio < 0 or stock < 0:
-            messages.error(request, "Completa los campos y usa valores no negativos.")
-        else:
-            Producto.objects.create(
-                nombre=nombre,
-                categoria=categoria,
-                precio=precio,
-                stock=stock,
-                imagen=imagen,
-                caracteristicas=caracteristicas or [f"Categoría: {categoria}"],
-            )
-            messages.success(request, "Producto creado correctamente.")
-            return redirect("catalogo:admin_productos")
-
-    return render(request, "catalogo/admin_producto_form.html", {"modo": "Crear"})
+    return render(
+        request,
+        "catalogo/form_producto.html",
+        {"form": form, "titulo": "Crear Producto"},
+    )
 
 
 @user_passes_test(_es_administrador, login_url="catalogo:login")
 def admin_producto_editar(request, producto_id):
     producto = get_object_or_404(Producto, pk=producto_id)
+    form = ProductoForm(request.POST or None, instance=producto)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Producto actualizado correctamente.")
+        return redirect("catalogo:admin_productos")
 
-    if request.method == "POST":
-        try:
-            precio = int(request.POST.get("precio", "0"))
-            stock = int(request.POST.get("stock", "0"))
-        except ValueError:
-            messages.error(request, "Precio y stock deben ser números enteros.")
-            return render(request, "catalogo/admin_producto_form.html", {"modo": "Editar", "producto": producto})
-
-        if precio < 0 or stock < 0 or not request.POST.get("nombre", "").strip():
-            messages.error(request, "El nombre es obligatorio y los valores no pueden ser negativos.")
-        else:
-            producto.nombre = request.POST["nombre"].strip()
-            producto.categoria = request.POST["categoria"].strip()
-            producto.precio = precio
-            producto.stock = stock
-            producto.imagen = request.POST.get("imagen", "").strip()
-            producto.caracteristicas = [
-                line.strip()
-                for line in request.POST.get("caracteristicas", "").splitlines()
-                if line.strip()
-            ]
-            producto.save()
-            messages.success(request, "Producto actualizado correctamente.")
-            return redirect("catalogo:admin_productos")
-
-    return render(request, "catalogo/admin_producto_form.html", {"modo": "Editar", "producto": producto})
+    return render(
+        request,
+        "catalogo/form_producto.html",
+        {"form": form, "titulo": f"Editar Producto: {producto.nombre}"},
+    )
 
 
 @user_passes_test(_es_administrador, login_url="catalogo:login")
 def admin_producto_eliminar(request, producto_id):
+    producto = get_object_or_404(Producto, pk=producto_id)
     if request.method == "POST":
-        Producto.objects.filter(pk=producto_id).delete()
+        producto.delete()
         messages.success(request, "Producto eliminado correctamente.")
-    return redirect("catalogo:admin_productos")
+        return redirect("catalogo:admin_productos")
+
+    return render(
+        request,
+        "catalogo/confirmar_eliminacion.html",
+        {"producto": producto},
+    )
 
 
 @user_passes_test(_es_administrador, login_url="catalogo:login")
@@ -366,3 +342,11 @@ def admin_productos(request):
         "catalogo/admin_productos.html",
         {"productos": Producto.objects.order_by("id")},
     )
+
+
+def editar_producto(request, pk):
+    return admin_producto_editar(request, producto_id=pk)
+
+
+def eliminar_producto(request, pk):
+    return admin_producto_eliminar(request, producto_id=pk)

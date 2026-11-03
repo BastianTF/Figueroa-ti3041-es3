@@ -1,0 +1,16 @@
+{% extends "catalogo/base.html" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block contenido %}
+<div class="auth-page">
+    <div class="auth-card admin-form-card">
+        <span class="kicker">Inventario</span>
+        <h2>{{ titulo }}</h2>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a href="{% url 'catalogo:lista_productos' %}" class="btn btn-secondary">Cancelar</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

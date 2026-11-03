@@ -86,3 +86,90 @@ class CatalogoTests(TestCase):
 
 		self.assertEqual(respuesta.status_code, 200)
 		self.assertContains(respuesta, "Taladro percutor 650W")
+
+
+class AdministracionProductosTests(TestCase):
+	def setUp(self):
+		self.administrador = User.objects.create_user(
+			username="admin-productos",
+			password="clave-prueba",
+			is_staff=True,
+		)
+		self.client.force_login(self.administrador)
+		self.producto = Producto.objects.create(
+			nombre="Producto existente",
+			categoria="Herramientas",
+			precio=15000,
+			stock=3,
+			caracteristicas=["Durable"],
+		)
+
+	def test_rutas_crud_compatibles(self):
+		self.assertEqual(reverse("catalogo:lista_productos"), "/")
+		self.assertEqual(reverse("catalogo:crear_producto"), "/crear/")
+		self.assertEqual(
+			reverse("catalogo:editar_producto", args=[self.producto.pk]),
+			f"/editar/{self.producto.pk}/",
+		)
+		self.assertEqual(
+			reverse("catalogo:eliminar_producto", args=[self.producto.pk]),
+			f"/eliminar/{self.producto.pk}/",
+		)
+
+	def test_crear_producto_con_formulario(self):
+		respuesta = self.client.post(
+			reverse("catalogo:admin_producto_nuevo"),
+			{
+				"nombre": "Producto nuevo",
+				"categoria": "Jardín",
+				"precio": 12000,
+				"stock": 5,
+				"imagen": "",
+				"caracteristicas": "Resistente\nLiviano",
+			},
+		)
+
+		self.assertRedirects(respuesta, reverse("catalogo:admin_productos"))
+		producto = Producto.objects.get(nombre="Producto nuevo")
+		self.assertEqual(producto.caracteristicas, ["Resistente", "Liviano"])
+
+	def test_editar_producto_conserva_y_actualiza_campos(self):
+		respuesta = self.client.post(
+			reverse("catalogo:admin_producto_editar", args=[self.producto.pk]),
+			{
+				"nombre": "Producto actualizado",
+				"categoria": "Construcción",
+				"precio": 17000,
+				"stock": 7,
+				"imagen": "https://example.com/producto.jpg",
+				"caracteristicas": "Nuevo detalle",
+			},
+		)
+
+		self.assertRedirects(respuesta, reverse("catalogo:admin_productos"))
+		self.producto.refresh_from_db()
+		self.assertEqual(self.producto.nombre, "Producto actualizado")
+		self.assertEqual(self.producto.caracteristicas, ["Nuevo detalle"])
+		self.assertEqual(self.producto.imagen, "https://example.com/producto.jpg")
+
+	def test_eliminar_producto_solicita_confirmacion_y_elimina_por_post(self):
+		url = reverse("catalogo:admin_producto_eliminar", args=[self.producto.pk])
+
+		respuesta = self.client.get(url)
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertContains(respuesta, "¿Estás seguro")
+		self.assertTrue(Producto.objects.filter(pk=self.producto.pk).exists())
+
+		respuesta = self.client.post(url)
+		self.assertRedirects(respuesta, reverse("catalogo:admin_productos"))
+		self.assertFalse(Producto.objects.filter(pk=self.producto.pk).exists())
+
+	def test_usuario_no_administrador_no_puede_administrar_productos(self):
+		self.client.logout()
+
+		respuesta = self.client.get(reverse("catalogo:admin_producto_nuevo"))
+
+		self.assertRedirects(
+			respuesta,
+			f"{reverse('catalogo:login')}?next={reverse('catalogo:admin_producto_nuevo')}",
+		)

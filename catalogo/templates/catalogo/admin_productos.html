@@ -16,7 +16,7 @@
                     <td><img class="admin-product-image" src="{{ producto.imagen }}" alt="{{ producto.nombre }}"></td>
                     <td>{{ producto.nombre }}</td><td>{{ producto.categoria }}</td><td>${{ producto.precio|precio }}</td>
                     <td><span class="stock {% if producto.stock == 0 %}stock--red{% endif %}">{{ producto.stock }}</span></td>
-                    <td class="admin-row-actions"><a class="ver-link" href="{% url 'catalogo:admin_producto_editar' producto.id %}">Editar / stock</a><form method="post" action="{% url 'catalogo:admin_producto_eliminar' producto.id %}">{% csrf_token %}<button class="danger-link" type="submit">Eliminar</button></form></td>
+                    <td class="admin-row-actions"><a class="ver-link" href="{% url 'catalogo:admin_producto_editar' producto.id %}">Editar / stock</a><a class="danger-link" href="{% url 'catalogo:admin_producto_eliminar' producto.id %}">Eliminar</a></td>
                 </tr>
             {% endfor %}
             </tbody>
