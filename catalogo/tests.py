@@ -84,6 +84,58 @@ class CatalogoTests(TestCase):
 		self.assertContains(respuesta, "-15%")
 		self.assertContains(respuesta, "$33.992")
 
+	def test_tarjetas_de_inicio_enlazan_a_sus_paginas_promocionales(self):
+		respuesta = self.client.get(reverse("catalogo:lista"))
+
+		for slug in ("taller", "liquidacion", "calefaccion", "cotiza"):
+			self.assertContains(
+				respuesta,
+				reverse("catalogo:promocion", args=[slug]),
+			)
+
+	def test_pagina_de_taller_muestra_herramientas_relevantes(self):
+		respuesta = self.client.get(reverse("catalogo:promocion", args=["taller"]))
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertContains(respuesta, "Taladro de prueba")
+		self.assertContains(respuesta, "Martillo de prueba")
+
+	def test_liquidacion_muestra_solo_descuentos_y_el_maximo_real(self):
+		respuesta = self.client.get(reverse("catalogo:promocion", args=["liquidacion"]))
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertContains(respuesta, "Taladro de prueba")
+		self.assertContains(respuesta, "Descuentos de hasta")
+		self.assertContains(respuesta, "15")
+		self.assertNotContains(respuesta, "70%")
+
+	def test_pagina_de_calefaccion_informa_si_no_hay_productos_publicados(self):
+		respuesta = self.client.get(reverse("catalogo:promocion", args=["calefaccion"]))
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertContains(respuesta, "Aún no hay calefactores publicados")
+		self.assertContains(respuesta, "Consultar por calefacción")
+
+	def test_pagina_de_cotizacion_guarda_consulta(self):
+		respuesta = self.client.post(
+			reverse("catalogo:promocion", args=["cotiza"]),
+			{
+				"nombre": "Cliente",
+				"correo": "cliente@example.com",
+				"mensaje": "Necesito cotizar herramientas para mi taller.",
+				"producto_interes": self.producto.pk,
+			},
+		)
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertTemplateUsed(respuesta, "catalogo/gracias.html")
+		self.assertEqual(ConsultaCliente.objects.count(), 1)
+
+	def test_promocion_desconocida_responde_404(self):
+		respuesta = self.client.get(reverse("catalogo:promocion", args=["desconocida"]))
+
+		self.assertEqual(respuesta.status_code, 404)
+
 	def test_filtra_por_categoria_y_ordena_por_precio(self):
 		categoria = self.producto.categoria
 

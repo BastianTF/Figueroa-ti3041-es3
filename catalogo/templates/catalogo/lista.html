@@ -1,11 +1,11 @@
 {% extends "catalogo/base.html" %}
 {% load catalogo_tags %}
-{% block titulo %}Ferretería El Tornillo | Inicio{% endblock %}
+{% block titulo %}Ferreterías RANCO | Inicio{% endblock %}
 {% block contenido %}
 <div class="portada">
     <div class="promo-bar">
         <span class="promo-tag">ENVÍO</span>
-        <span class="promo-text">Por compras sobre $49.990 en Ferretería El Tornillo</span>
+        <span class="promo-text">Por compras sobre $49.990 en Ferreterías RANCO</span>
         <span class="promo-tag promo-tag--light">APP</span>
     </div>
 
@@ -34,20 +34,6 @@
             </div>
         </div>
 
-        <div class="hero-spotlight">
-            {% if producto_destacado %}
-            <div class="spotlight-card">
-                <div class="spotlight-badge">OFERTA</div>
-                <h3>{{ producto_destacado.nombre }}</h3>
-                <p>{{ producto_destacado.categoria }}</p>
-                <div class="spotlight-price">
-                    <span class="old-price">${{ producto_destacado.precio|precio }}</span>
-                    <strong>${{ producto_destacado.precio_oferta|precio }}</strong>
-                </div>
-                <a href="{% url 'catalogo:detalle' producto_destacado.id %}">Ver detalle</a>
-            </div>
-            {% endif %}
-        </div>
     </section>
 
     <section class="catalogo-page">
@@ -98,22 +84,30 @@
     </section>
 
     <section class="promo-grid" id="ofertas">
-        <article class="promo-card promo-card--orange">
-                <span>Ofertas</span>
-                <h3><a class="promo-link" href="{% url 'catalogo:ofertas' %}">Herramientas para tu taller</a></h3>
-        </article>
-        <article class="promo-card promo-card--yellow">
+        <a class="promo-card promo-card--orange promo-link" href="{% url 'catalogo:promocion' 'taller' %}">
+            <span>Ofertas</span>
+            <h3>Herramientas para tu taller</h3>
+            <span class="promo-card-cta">Descubre la selección <span aria-hidden="true">→</span></span>
+        </a>
+        <a class="promo-card promo-card--yellow promo-link" href="{% url 'catalogo:promocion' 'liquidacion' %}">
             <span>Liquidación</span>
-            <h3>Hasta 70% dto.</h3>
-        </article>
-        <article class="promo-card promo-card--white">
+            {% if max_descuento %}
+                <h3>Hasta {{ max_descuento }}% dto.</h3>
+            {% else %}
+                <h3>Precios especiales</h3>
+            {% endif %}
+            <span class="promo-card-cta">Ver productos <span aria-hidden="true">→</span></span>
+        </a>
+        <a class="promo-card promo-card--white promo-link" href="{% url 'catalogo:promocion' 'calefaccion' %}">
             <span>Recomendado</span>
             <h3>Calefacción y calefactores</h3>
-        </article>
-        <article class="promo-card promo-card--dark">
+            <span class="promo-card-cta">Conoce más <span aria-hidden="true">→</span></span>
+        </a>
+        <a class="promo-card promo-card--dark promo-link" href="{% url 'catalogo:promocion' 'cotiza' %}">
             <span>Promoción</span>
-            <h3>cotiza tus productos</h3>
-        </article>
+            <h3>Cotiza tus productos</h3>
+            <span class="promo-card-cta">Solicitar cotización <span aria-hidden="true">→</span></span>
+        </a>
     </section>
 
 </div>

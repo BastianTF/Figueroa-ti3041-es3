@@ -3,12 +3,19 @@
 {% block titulo %}Catálogo completo{% endblock %}
 {% block contenido %}
 <div class="catalogo-page">
+    <div class="catalogo-header-page">
+        <div>
+            <span class="kicker">Encuentra lo que necesitas</span>
+            <h1>Explora nuestro catálogo</h1>
+            <p class="catalogo-intro">Herramientas y soluciones para llevar tus proyectos más lejos.</p>
+        </div>
+    </div>
 
     {% if query %}
     <p class="resultados-busqueda">Resultados para: <strong>{{ query }}</strong></p>
     {% endif %}
 
-    <form class="catalogo-filtros" method="get">
+    <form class="catalogo-filtros" method="get" aria-label="Filtrar productos">
         <input type="hidden" name="q" value="{{ query }}">
         <label>
             Categoría

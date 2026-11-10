@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "id": 1,
+    "usuario": "Laura",
+    "fecha": "2026-11-03 18:15",
+    "total": 10000,
+    "productos": [
+      {
+        "id": 41,
+        "nombre": "Timbles",
+        "cantidad": 1,
+        "subtotal": 10000
+      }
+    ]
+  }
+]

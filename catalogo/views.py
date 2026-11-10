@@ -7,7 +7,8 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Avg, Count, Q, Sum
+from django.db.models import Avg, Count, Max, Q, Sum
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import ConsultaClienteForm, ProductoForm
@@ -31,6 +32,59 @@ def _es_administrador(user):
     return user.is_authenticated and user.is_staff
 
 
+PROMOCIONES = {
+    "taller": {
+        "eyebrow": "Selección para profesionales y aficionados",
+        "title": "Herramientas para llevar tu taller más lejos",
+        "description": "Encuentra herramientas manuales, eléctricas y de medición para reparar, construir y dar vida a tus proyectos.",
+        "categories": ("Herramientas manuales", "Herramientas eléctricas", "Medición"),
+        "features": (
+            ("01", "Herramientas manuales", "Esenciales confiables para ajustes, montaje y reparación."),
+            ("02", "Potencia eléctrica", "Equipos para avanzar con precisión en cada proyecto."),
+            ("03", "Medición precisa", "Prepara cada trabajo con medidas y nivelación confiables."),
+        ),
+        "empty_message": "Estamos preparando esta selección. Revisa el catálogo completo para encontrar más alternativas.",
+        "cta": "Explorar catálogo",
+    },
+    "liquidacion": {
+        "eyebrow": "Precios especiales en productos seleccionados",
+        "title": "Aprovecha las ofertas disponibles",
+        "description": "Revisa los productos con descuento vigente. El precio y la disponibilidad se actualizan desde nuestro catálogo.",
+        "features": (
+            ("01", "Descuentos visibles", "Cada producto muestra su precio anterior y su precio de oferta."),
+            ("02", "Stock actualizado", "Consulta las unidades disponibles antes de comprar."),
+            ("03", "Compra fácil", "Agrega tus favoritos al carro o revisa sus detalles."),
+        ),
+        "empty_message": "Por ahora no hay productos en liquidación. Vuelve pronto para revisar nuevas ofertas.",
+        "cta": "Ver todos los productos",
+    },
+    "calefaccion": {
+        "eyebrow": "Recomendados para tu hogar",
+        "title": "Prepárate para los días fríos",
+        "description": "Estamos preparando nuestra selección de calefacción. Cuéntanos qué necesitas y te ayudaremos a encontrar una alternativa.",
+        "search": "calefac",
+        "features": (
+            ("01", "Elige para tu espacio", "Cuéntanos qué ambiente quieres calefaccionar."),
+            ("02", "Consulta disponibilidad", "Solicita información antes de decidir tu compra."),
+            ("03", "Atención personalizada", "Déjanos tus datos y responderemos tu consulta."),
+        ),
+        "empty_message": "Aún no hay calefactores publicados en el catálogo en línea. Puedes consultar disponibilidad mediante el formulario.",
+        "cta": "Consultar disponibilidad",
+    },
+    "cotiza": {
+        "eyebrow": "Atención personalizada",
+        "title": "Cotiza los productos para tu proyecto",
+        "description": "Cuéntanos qué materiales o herramientas estás buscando. Envíanos tu consulta y nos pondremos en contacto contigo.",
+        "features": (
+            ("01", "Cuéntanos tu proyecto", "Indica los productos o materiales que necesitas."),
+            ("02", "Incluye los detalles", "Puedes mencionar cantidades, medidas o características."),
+            ("03", "Recibe atención", "Nuestro equipo recibirá tu solicitud para responderte."),
+        ),
+        "cta": "Ver catálogo",
+    },
+}
+
+
 def lista(request):
     visitas = request.session.get("contador_visitas", 0) + 1
     request.session["contador_visitas"] = visitas
@@ -45,10 +99,10 @@ def lista(request):
         "total_con_stock": total_con_stock,
         "total_sin_stock": total_productos - total_con_stock,
         "visitas": visitas,
-        "producto_destacado": Producto.objects.filter(
+        "max_descuento": Producto.objects.filter(
             descuento__gt=0,
             precio_oferta__isnull=False,
-        ).order_by("id").first(),
+        ).aggregate(max_descuento=Max("descuento"))["max_descuento"] or 0,
     }
     return render(request, "catalogo/lista.html", contexto)
 
@@ -71,6 +125,51 @@ def ofertas(request):
         precio_oferta__isnull=False,
     ).order_by("id")
     return render(request, "catalogo/ofertas.html", {"productos": productos})
+
+
+def promocion(request, slug):
+    campana = PROMOCIONES.get(slug)
+    if campana is None:
+        raise Http404("La promoción solicitada no existe.")
+
+    productos = Producto.objects.all()
+    if slug == "taller":
+        productos = productos.filter(categoria__in=campana["categories"])
+    elif slug == "liquidacion":
+        productos = productos.filter(descuento__gt=0, precio_oferta__isnull=False)
+    elif slug == "calefaccion":
+        productos = productos.filter(
+            Q(nombre__icontains=campana["search"])
+            | Q(categoria__icontains=campana["search"])
+        )
+    else:
+        productos = Producto.objects.none()
+
+    productos = productos.order_by(
+        "-descuento" if slug == "liquidacion" else "nombre",
+        "nombre",
+    )
+    form = ConsultaClienteForm(request.POST or None) if slug == "cotiza" else None
+    if form and request.method == "POST" and form.is_valid():
+        form.save()
+        return render(
+            request,
+            "catalogo/gracias.html",
+            {"mensaje": "¡Gracias por tu consulta! Nos pondremos en contacto pronto."},
+        )
+
+    max_descuento = productos.aggregate(max_descuento=Max("descuento"))["max_descuento"] or 0
+    return render(
+        request,
+        "catalogo/promocion.html",
+        {
+            "campana": campana,
+            "slug": slug,
+            "productos": productos,
+            "form": form,
+            "max_descuento": max_descuento,
+        },
+    )
 
 
 def catalogo(request):
@@ -259,7 +358,7 @@ def registro(request):
             messages.error(request, "Ese nombre de usuario ya existe.")
             return render(request, "catalogo/registro.html")
 
-        user = User.objects.create_user(username=username, email=email, password=password)
+        User.objects.create_user(username=username, email=email, password=password)
         messages.success(request, "Cuenta creada correctamente.")
         return redirect("catalogo:login")
 

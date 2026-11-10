@@ -3,21 +3,37 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>{% block titulo %}Ferretería El Tornillo{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'catalogo/estilos.css' %}?v=tema-rojo-1">
+    <title>{% block titulo %}Ferreterías RANCO{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'catalogo/estilos.css' %}?v=ofertas-slider-ranco-1">
 </head>
 <body>
     <header class="market-header">
         <div class="top-bar">
             <div class="brand-wrap">
-                <span class="brand-icon">🔧</span>
-                <a href="{% url 'catalogo:lista' %}" class="brand-name">Ferretería El Tornillo</a>
+                <a href="{% url 'catalogo:lista' %}" class="brand-logo-link" aria-label="Ferreterías RANCO, inicio">
+                    <img class="brand-logo" src="{% static 'catalogo/ferreterias-ranco-logo.png' %}" alt="Ferreterías RANCO — Hardware, Tools, Supplies">
+                </a>
             </div>
 
-            <form class="search-box" method="get" action="{% url 'catalogo:catalogo' %}">
-                <span class="search-icon">⌕</span>
-                <input type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Buscar producto" aria-label="Buscar producto">
-            </form>
+            <div class="search-nav-group">
+                <form class="search-box" method="get" action="{% url 'catalogo:catalogo' %}">
+                    <span class="search-icon">⌕</span>
+                    <input type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Buscar producto" aria-label="Buscar producto">
+                </form>
+                <nav class="main-nav">
+                    <button class="categories-trigger" type="button" aria-controls="categories-drawer" aria-expanded="false">
+                        <span aria-hidden="true">☰</span> Categorías
+                    </button>
+                    <a href="{% url 'catalogo:ofertas' %}">Ofertas</a>
+                    <a href="{% url 'catalogo:contacto' %}">Contacto</a>
+                    <a href="#">Nuevo en Ferretería</a>
+                    <a href="#">Servicios</a>
+                    {% if user.is_staff %}
+                        <a href="{% url 'catalogo:reporte_agregacion' %}">Reporte Categorías</a>
+                        <a href="{% url 'catalogo:reporte_filtrado' %}">Stock Crítico</a>
+                    {% endif %}
+                </nav>
+            </div>
 
             <div class="account-actions">
                 <a href="{% url 'catalogo:carrito' %}" class="cart-link">
@@ -38,19 +54,6 @@
             </div>
         </div>
 
-        <nav class="main-nav">
-            <button class="categories-trigger" type="button" aria-controls="categories-drawer" aria-expanded="false">
-                <span aria-hidden="true">☰</span> Categorías
-            </button>
-            <a href="{% url 'catalogo:ofertas' %}">Ofertas</a>
-            <a href="{% url 'catalogo:contacto' %}">Contacto</a>
-            <a href="#">Nuevo en Ferretería</a>
-            <a href="#">Servicios</a>
-            {% if user.is_staff %}
-                <a href="{% url 'catalogo:reporte_agregacion' %}">Reporte Categorías</a>
-                <a href="{% url 'catalogo:reporte_filtrado' %}">Stock Crítico</a>
-            {% endif %}
-        </nav>
     </header>
 
     <div class="categories-overlay" data-categories-close></div>

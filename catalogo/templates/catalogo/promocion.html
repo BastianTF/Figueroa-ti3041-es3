@@ -1,0 +1,141 @@
+{% extends "catalogo/base.html" %}
+{% load catalogo_tags %}
+{% block titulo %}{{ campana.title }} | Ferreterías RANCO{% endblock %}
+{% block contenido %}
+<div class="campaign-page">
+    <section class="campaign-hero campaign-hero--{{ slug }}">
+        <div class="campaign-hero-copy">
+            <span class="campaign-eyebrow">{{ campana.eyebrow }}</span>
+            <h1>{{ campana.title }}</h1>
+            <p>{{ campana.description }}</p>
+            <div class="campaign-actions">
+                {% if slug == "cotiza" %}
+                    <a class="btn btn-primary" href="#cotizacion">Solicitar cotización</a>
+                {% elif slug == "calefaccion" %}
+                    <a class="btn btn-primary" href="{% url 'catalogo:contacto' %}">Consultar disponibilidad</a>
+                {% else %}
+                    <a class="btn btn-primary" href="#productos">{{ campana.cta }}</a>
+                {% endif %}
+                <a class="btn btn-secondary" href="{% url 'catalogo:catalogo' %}">Ver catálogo completo</a>
+            </div>
+        </div>
+        <div class="campaign-highlight">
+            {% if slug == "liquidacion" and max_descuento %}
+                <span>Descuentos de hasta</span>
+                <strong>{{ max_descuento }}<small>%</small></strong>
+                <span>en productos seleccionados</span>
+            {% elif slug == "taller" %}
+                <span>Todo para</span>
+                <strong>crear<span>.</span></strong>
+                <span>construir y reparar</span>
+            {% elif slug == "calefaccion" %}
+                <span>Confort para</span>
+                <strong>tu hogar</strong>
+                <span>consulta por disponibilidad</span>
+            {% else %}
+                <span>Tu próximo</span>
+                <strong>proyecto</strong>
+                <span>empieza con una buena consulta</span>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="campaign-features" aria-label="Beneficios de esta selección">
+        {% for numero, titulo, descripcion in campana.features %}
+        <article class="campaign-feature">
+            <span>{{ numero }}</span>
+            <div>
+                <h2>{{ titulo }}</h2>
+                <p>{{ descripcion }}</p>
+            </div>
+        </article>
+        {% endfor %}
+    </section>
+
+    {% if slug == "cotiza" %}
+    <section class="campaign-quote" id="cotizacion">
+        <div class="campaign-quote-copy">
+            <span class="kicker">Cuéntanos qué necesitas</span>
+            <h2>Solicita tu cotización</h2>
+            <p>Completa el formulario y envíanos los detalles de tu compra o proyecto.</p>
+            <a class="ver-link" href="{% url 'catalogo:catalogo' %}">Revisar productos antes de cotizar →</a>
+        </div>
+        <div class="campaign-form-card">
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button class="btn btn-primary" type="submit">Enviar solicitud</button>
+            </form>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if slug != "cotiza" %}
+    <section class="campaign-products" id="productos">
+        <div class="catalogo-header-page">
+            <div>
+                <span class="kicker">
+                    {% if slug == "liquidacion" %}Ofertas vigentes{% elif slug == "calefaccion" %}Selección recomendada{% else %}Selección para tu taller{% endif %}
+                </span>
+                <h2>
+                    {% if slug == "liquidacion" %}Productos con descuento{% elif slug == "calefaccion" %}Productos disponibles{% else %}Equipa tu próximo proyecto{% endif %}
+                </h2>
+            </div>
+        </div>
+        <div class="catalog-grid catalog-grid--full">
+            {% for producto in productos %}
+            <article class="producto-card {% if producto.stock == 0 %}producto-card--sin-stock{% endif %}">
+                {% if producto.descuento and producto.precio_oferta %}
+                    <div class="oferta-ribbon">-{{ producto.descuento }}%</div>
+                {% endif %}
+                {% if producto.imagen %}
+                    <img class="producto-imagen" src="{{ producto.imagen }}" alt="{{ producto.nombre }}">
+                {% else %}
+                    <div class="producto-imagen campaign-product-placeholder" aria-hidden="true">RANCO</div>
+                {% endif %}
+                <div class="producto-badge">
+                    {% if producto.stock == 0 %}Sin stock{% elif producto.stock < 10 %}Últimas unidades{% else %}En stock{% endif %}
+                </div>
+                <h3>{{ producto.nombre }}</h3>
+                <p class="categoria">{{ producto.categoria }}</p>
+                {% if producto.precio_oferta %}
+                    <div class="oferta-precios">
+                        <span class="oferta-precio-anterior">${{ producto.precio|precio }}</span>
+                        <strong>${{ producto.precio_oferta|precio }}</strong>
+                    </div>
+                {% else %}
+                    <p class="precio">${{ producto.precio|precio }}</p>
+                {% endif %}
+                <div class="stock-row">
+                    {% if producto.stock == 0 %}
+                        <span class="stock stock--red">Sin stock</span>
+                    {% else %}
+                        <span class="stock">{{ producto.stock }} disponibles</span>
+                    {% endif %}
+                </div>
+                <div class="producto-card-actions">
+                    <a class="ver-link" href="{% url 'catalogo:detalle' producto.id %}">Ver detalle</a>
+                    <form method="post" action="{% url 'catalogo:agregar_carrito' producto.id %}">
+                        {% csrf_token %}
+                        <button class="btn btn-primary btn-cart" type="submit" {% if producto.stock == 0 %}disabled{% endif %}>
+                            {% if producto.stock == 0 %}Agotado{% else %}Añadir al carro{% endif %}
+                        </button>
+                    </form>
+                </div>
+            </article>
+            {% empty %}
+                <div class="campaign-empty">
+                    <span aria-hidden="true">✦</span>
+                    <p>{{ campana.empty_message }}</p>
+                    {% if slug == "calefaccion" %}
+                        <a class="btn btn-primary" href="{% url 'catalogo:contacto' %}">Consultar por calefacción</a>
+                    {% elif slug == "liquidacion" %}
+                        <a class="btn btn-primary" href="{% url 'catalogo:catalogo' %}">Explorar catálogo</a>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
