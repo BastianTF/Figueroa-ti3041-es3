@@ -6,6 +6,7 @@
         <h1>Crear cuenta</h1>
         <form method="post">
             {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next_url }}">
             <label for="username">Usuario</label>
             <input type="text" id="username" name="username" required>
 
@@ -20,7 +21,7 @@
 
             <button type="submit" class="btn btn-primary">Registrarse</button>
         </form>
-        <p class="auth-switch">¿Ya tienes cuenta? <a href="{% url 'catalogo:login' %}">Iniciar sesión</a></p>
+        <p class="auth-switch">¿Ya tienes cuenta? <a href="{% url 'catalogo:login' %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">Iniciar sesión</a></p>
     </div>
 </div>
 {% endblock %}

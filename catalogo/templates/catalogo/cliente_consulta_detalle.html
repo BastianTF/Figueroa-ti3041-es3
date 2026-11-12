@@ -1,0 +1,16 @@
+{% extends "catalogo/base.html" %}
+{% block titulo %}Conversación de consulta{% endblock %}
+{% block contenido %}
+<div class="admin-page">
+    <div class="admin-heading">
+        <div>
+            <span class="kicker">Tu cuenta</span>
+            <h1>Consulta a Ferreterías RANCO</h1>
+        </div>
+        <div class="admin-actions">
+            <a class="btn btn-secondary" href="{% url 'catalogo:mis_consultas' %}">Volver a mis consultas</a>
+        </div>
+    </div>
+    {% include "catalogo/_conversacion_consulta.html" %}
+</div>
+{% endblock %}

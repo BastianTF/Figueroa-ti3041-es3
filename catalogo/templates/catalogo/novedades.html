@@ -1,0 +1,60 @@
+{% extends "catalogo/base.html" %}
+{% load catalogo_tags %}
+{% block titulo %}Novedades | Ferreterías RANCO{% endblock %}
+{% block contenido %}
+<div class="catalogo-page novedades-page">
+    <section class="novedades-hero">
+        <div>
+            <span class="kicker">Recién agregados</span>
+            <h1>Novedades en Ferretería</h1>
+            <p>Descubre los últimos productos incorporados a nuestro catálogo.</p>
+        </div>
+        <a class="btn btn-primary" href="{% url 'catalogo:catalogo' %}">Explorar todo el catálogo</a>
+    </section>
+
+    <div class="catalog-grid catalog-grid--full">
+        {% for producto in productos %}
+        <article class="producto-card {% if producto.stock == 0 %}producto-card--sin-stock{% endif %}">
+            {% if producto.imagen %}
+                <img class="producto-imagen" src="{{ producto.imagen }}" alt="{{ producto.nombre }}">
+            {% else %}
+                <div class="producto-imagen campaign-product-placeholder" aria-hidden="true">RANCO</div>
+            {% endif %}
+            <div class="producto-badge">Novedad</div>
+            <h3>{{ producto.nombre }}</h3>
+            <p class="categoria">{{ producto.categoria }}</p>
+            {% if producto.precio_oferta %}
+                <div class="oferta-precios">
+                    <span class="oferta-precio-anterior">${{ producto.precio|precio }}</span>
+                    <strong>${{ producto.precio_oferta|precio }}</strong>
+                </div>
+            {% else %}
+                <p class="precio">${{ producto.precio|precio }}</p>
+            {% endif %}
+            <div class="stock-row">
+                {% if producto.stock == 0 %}
+                    <span class="stock stock--red">Sin stock</span>
+                {% else %}
+                    <span class="stock">{{ producto.stock }} disponibles</span>
+                {% endif %}
+            </div>
+            <div class="producto-card-actions">
+                <a class="ver-link" href="{% url 'catalogo:detalle' producto.id %}">Ver detalle</a>
+                <form method="post" action="{% url 'catalogo:agregar_carrito' producto.id %}">
+                    {% csrf_token %}
+                    <button class="btn btn-primary btn-cart" type="submit" {% if producto.stock == 0 %}disabled{% endif %}>
+                        {% if producto.stock == 0 %}Agotado{% else %}Añadir al carro{% endif %}
+                    </button>
+                </form>
+            </div>
+        </article>
+        {% empty %}
+            <div class="catalogo-empty">
+                <h2>Pronto tendremos novedades</h2>
+                <p>Por ahora no hay productos publicados.</p>
+                <a class="btn btn-secondary" href="{% url 'catalogo:catalogo' %}">Ver catálogo</a>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

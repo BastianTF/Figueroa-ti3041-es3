@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import ConsultaCliente, Producto
+from .models import ConsultaCliente, MensajeConsulta, Producto
 
 
 class ProductoForm(forms.ModelForm):
@@ -56,10 +56,21 @@ class ProductoForm(forms.ModelForm):
 class ConsultaClienteForm(forms.ModelForm):
     class Meta:
         model = ConsultaCliente
-        fields = ["nombre", "correo", "mensaje", "producto_interes"]
+        fields = ["mensaje", "producto_interes"]
         widgets = {
-            "nombre": forms.TextInput(attrs={"class": "form-control"}),
-            "correo": forms.EmailInput(attrs={"class": "form-control"}),
             "mensaje": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
             "producto_interes": forms.Select(attrs={"class": "form-control"}),
+        }
+
+
+class MensajeConsultaForm(forms.ModelForm):
+    class Meta:
+        model = MensajeConsulta
+        fields = ["contenido"]
+        widgets = {
+            "contenido": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 3,
+                "placeholder": "Escribe tu mensaje...",
+            }),
         }

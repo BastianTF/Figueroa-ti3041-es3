@@ -1,0 +1,36 @@
+{% extends "catalogo/base.html" %}
+{% block titulo %}Mis consultas{% endblock %}
+{% block contenido %}
+<div class="admin-page">
+    <div class="admin-heading">
+        <div>
+            <span class="kicker">Tu cuenta</span>
+            <h1>Mis consultas</h1>
+        </div>
+        <div class="admin-actions">
+            <a class="btn btn-secondary" href="{% url 'catalogo:contacto' %}">Hacer una consulta</a>
+        </div>
+    </div>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr><th>Fecha</th><th>Producto de interés</th><th>Consulta</th><th>Estado</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for consulta in consultas %}
+                    <tr>
+                        <td>{{ consulta.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>{{ consulta.producto_interes|default:"No especificado" }}</td>
+                        <td>{{ consulta.mensaje|linebreaksbr }}</td>
+                        <td>{% if consulta.respondida %}Respondida{% else %}Pendiente de respuesta{% endif %}</td>
+                        <td><a class="btn btn-secondary" href="{% url 'catalogo:cliente_consulta_detalle' consulta.id %}">Abrir chat</a></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5">Todavía no has enviado consultas.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

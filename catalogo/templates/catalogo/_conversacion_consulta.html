@@ -1,0 +1,31 @@
+<section class="chat-card">
+    <header class="chat-card-header">
+        <div>
+            <h2>Conversación</h2>
+            <p>Consulta sobre {{ consulta.producto_interes|default:"atención general" }}</p>
+        </div>
+        <span>{{ consulta.fecha|date:"d/m/Y H:i" }}</span>
+    </header>
+
+    <div class="chat-messages" aria-live="polite">
+        {% for mensaje in mensajes %}
+            <article class="chat-message {% if mensaje.remitente == 'administrador' %}chat-message--admin{% else %}chat-message--cliente{% endif %}">
+                <div class="chat-message-meta">
+                    <strong>{% if mensaje.remitente == "administrador" %}Ferreterías RANCO{% else %}{{ consulta.nombre }}{% endif %}</strong>
+                    <time datetime="{{ mensaje.fecha|date:'c' }}">{{ mensaje.fecha|date:"d/m/Y H:i" }}</time>
+                </div>
+                <p>{{ mensaje.contenido|linebreaksbr }}</p>
+            </article>
+        {% empty %}
+            <p class="chat-empty">Aún no hay mensajes en esta conversación.</p>
+        {% endfor %}
+    </div>
+
+    <form class="chat-compose" method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="btn btn-primary" type="submit">
+            {% if es_administrador %}Enviar respuesta{% else %}Enviar mensaje{% endif %}
+        </button>
+    </form>
+</section>

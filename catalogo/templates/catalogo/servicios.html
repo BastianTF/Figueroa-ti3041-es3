@@ -1,0 +1,39 @@
+{% extends "catalogo/base.html" %}
+{% block titulo %}Servicios | Ferreterías RANCO{% endblock %}
+{% block contenido %}
+<div class="services-page">
+    <section class="services-hero">
+        <span class="eyebrow">Estamos para ayudarte</span>
+        <h1>Servicios para cada proyecto</h1>
+        <p>Encuentra productos, solicita una cotización y conversa con nuestro equipo desde tu cuenta.</p>
+        <a class="btn btn-primary" href="{% url 'catalogo:catalogo' %}">Explorar catálogo</a>
+    </section>
+
+    <section class="services-grid" aria-label="Servicios disponibles">
+        <article class="service-card">
+            <span class="service-card-icon" aria-hidden="true">01</span>
+            <h2>Cotiza tu proyecto</h2>
+            <p>Cuéntanos qué materiales o herramientas necesitas y envíanos los detalles de tu proyecto.</p>
+            <a class="service-card-link" href="{% url 'catalogo:promocion' 'cotiza' %}">Solicitar cotización <span aria-hidden="true">→</span></a>
+        </article>
+        <article class="service-card">
+            <span class="service-card-icon" aria-hidden="true">02</span>
+            <h2>Consulta disponibilidad</h2>
+            <p>Pregunta por productos, stock o características. Necesitas iniciar sesión para enviar una consulta.</p>
+            <a class="service-card-link" href="{% url 'catalogo:contacto' %}">Hacer una consulta <span aria-hidden="true">→</span></a>
+        </article>
+        <article class="service-card">
+            <span class="service-card-icon" aria-hidden="true">03</span>
+            <h2>Atención por chat</h2>
+            <p>Revisa las respuestas del administrador y continúa la conversación desde tus consultas.</p>
+            {% if user.is_authenticated and not user.is_staff %}
+                <a class="service-card-link" href="{% url 'catalogo:mis_consultas' %}">Ir a mis consultas <span aria-hidden="true">→</span></a>
+            {% elif user.is_staff %}
+                <a class="service-card-link" href="{% url 'catalogo:admin_consultas' %}">Revisar consultas <span aria-hidden="true">→</span></a>
+            {% else %}
+                <a class="service-card-link" href="{% url 'catalogo:login' %}?next={% url 'catalogo:mis_consultas' %}">Iniciar sesión <span aria-hidden="true">→</span></a>
+            {% endif %}
+        </article>
+    </section>
+</div>
+{% endblock %}

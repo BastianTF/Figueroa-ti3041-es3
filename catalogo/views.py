@@ -1,18 +1,22 @@
 import json
 from pathlib import Path
 from datetime import datetime
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Avg, Count, Max, Q, Sum
+from django.db.models import Avg, Count, Exists, Max, OuterRef, Q, Sum
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 
-from .forms import ConsultaClienteForm, ProductoForm
-from .models import Producto
+from .forms import ConsultaClienteForm, MensajeConsultaForm, ProductoForm
+from .models import ConsultaCliente, MensajeConsulta, Producto
 
 VENTAS_PATH = Path(__file__).resolve().parent / "data" / "ventas.json"
 
@@ -30,6 +34,32 @@ def guardar_ventas(ventas):
 
 def _es_administrador(user):
     return user.is_authenticated and user.is_staff
+
+
+def _url_siguiente_segura(request, url):
+    if url and url_has_allowed_host_and_scheme(
+        url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return url
+    return ""
+
+
+def _guardar_consulta_cliente(form, usuario):
+    with transaction.atomic():
+        consulta = form.save(commit=False)
+        consulta.usuario = usuario
+        consulta.nombre = (usuario.get_full_name().strip() or usuario.get_username())[:100]
+        consulta.correo = usuario.email
+        consulta.save()
+        MensajeConsulta.objects.create(
+            consulta=consulta,
+            autor=usuario,
+            remitente=MensajeConsulta.Remitente.CLIENTE,
+            contenido=consulta.mensaje,
+        )
+    return consulta
 
 
 PROMOCIONES = {
@@ -108,9 +138,19 @@ def lista(request):
 
 
 def contacto_cliente(request):
+    if request.user.is_authenticated and request.user.is_staff:
+        consultas = ConsultaCliente.objects.select_related("producto_interes").order_by("-fecha")
+        return render(request, "catalogo/admin_consultas.html", {"consultas": consultas})
+
+    if not request.user.is_authenticated:
+        return redirect_to_login(
+            request.get_full_path(),
+            login_url=reverse("catalogo:login"),
+        )
+
     form = ConsultaClienteForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        _guardar_consulta_cliente(form, request.user)
         return render(
             request,
             "catalogo/gracias.html",
@@ -127,10 +167,25 @@ def ofertas(request):
     return render(request, "catalogo/ofertas.html", {"productos": productos})
 
 
+def novedades(request):
+    productos = Producto.objects.order_by("-id")[:8]
+    return render(request, "catalogo/novedades.html", {"productos": productos})
+
+
+def servicios(request):
+    return render(request, "catalogo/servicios.html")
+
+
 def promocion(request, slug):
     campana = PROMOCIONES.get(slug)
     if campana is None:
         raise Http404("La promoción solicitada no existe.")
+
+    if slug == "cotiza" and not request.user.is_authenticated:
+        return redirect_to_login(
+            request.get_full_path(),
+            login_url=reverse("catalogo:login"),
+        )
 
     productos = Producto.objects.all()
     if slug == "taller":
@@ -151,7 +206,7 @@ def promocion(request, slug):
     )
     form = ConsultaClienteForm(request.POST or None) if slug == "cotiza" else None
     if form and request.method == "POST" and form.is_valid():
-        form.save()
+        _guardar_consulta_cliente(form, request.user)
         return render(
             request,
             "catalogo/gracias.html",
@@ -340,6 +395,10 @@ def confirmar_carrito(request):
 
 
 def registro(request):
+    next_url = _url_siguiente_segura(
+        request,
+        request.POST.get("next") or request.GET.get("next"),
+    )
     if request.method == "POST":
         username = (request.POST.get("username") or "").strip()
         email = (request.POST.get("email") or "").strip()
@@ -348,24 +407,30 @@ def registro(request):
 
         if not username or not password or not email:
             messages.error(request, "Debes completar todos los campos.")
-            return render(request, "catalogo/registro.html")
+            return render(request, "catalogo/registro.html", {"next_url": next_url})
 
         if password != password2:
             messages.error(request, "Las contraseñas no coinciden.")
-            return render(request, "catalogo/registro.html")
+            return render(request, "catalogo/registro.html", {"next_url": next_url})
 
         if User.objects.filter(username=username).exists():
             messages.error(request, "Ese nombre de usuario ya existe.")
-            return render(request, "catalogo/registro.html")
+            return render(request, "catalogo/registro.html", {"next_url": next_url})
 
         User.objects.create_user(username=username, email=email, password=password)
         messages.success(request, "Cuenta creada correctamente.")
+        if next_url:
+            return redirect(f"{reverse('catalogo:login')}?{urlencode({'next': next_url})}")
         return redirect("catalogo:login")
 
-    return render(request, "catalogo/registro.html")
+    return render(request, "catalogo/registro.html", {"next_url": next_url})
 
 
 def iniciar_sesion(request):
+    next_url = _url_siguiente_segura(
+        request,
+        request.POST.get("next") or request.GET.get("next"),
+    )
     if request.method == "POST":
         username = request.POST.get("username")
         password = request.POST.get("password")
@@ -373,11 +438,13 @@ def iniciar_sesion(request):
 
         if user is not None:
             login(request, user)
+            if next_url:
+                return redirect(next_url)
             return redirect("catalogo:lista")
 
         messages.error(request, "Credenciales inválidas.")
 
-    return render(request, "catalogo/login.html")
+    return render(request, "catalogo/login.html", {"next_url": next_url})
 
 
 def cerrar_sesion(request):
@@ -402,6 +469,93 @@ def admin_panel(request):
         "ventas_total": sum(venta["total"] for venta in ventas),
     }
     return render(request, "catalogo/admin_panel.html", contexto)
+
+
+@user_passes_test(_es_administrador, login_url="catalogo:login")
+def admin_consultas(request):
+    respuesta_admin = MensajeConsulta.objects.filter(
+        consulta_id=OuterRef("pk"),
+        remitente=MensajeConsulta.Remitente.ADMINISTRADOR,
+    )
+    consultas = ConsultaCliente.objects.select_related("producto_interes").annotate(
+        respondida=Exists(respuesta_admin),
+    ).order_by("-fecha")
+    return render(request, "catalogo/admin_consultas.html", {"consultas": consultas})
+
+
+@user_passes_test(_es_administrador, login_url="catalogo:login")
+def admin_consulta_detalle(request, consulta_id):
+    consulta = get_object_or_404(
+        ConsultaCliente.objects.select_related("producto_interes", "usuario"),
+        pk=consulta_id,
+    )
+    form = MensajeConsultaForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        mensaje = form.save(commit=False)
+        mensaje.consulta = consulta
+        mensaje.autor = request.user
+        mensaje.remitente = MensajeConsulta.Remitente.ADMINISTRADOR
+        mensaje.save()
+        messages.success(request, "El mensaje se envió correctamente.")
+        return redirect("catalogo:admin_consulta_detalle", consulta_id=consulta.pk)
+
+    return render(
+        request,
+        "catalogo/admin_consulta_detalle.html",
+        {
+            "consulta": consulta,
+            "form": form,
+            "mensajes": consulta.mensajes.select_related("autor").all(),
+            "es_administrador": True,
+        },
+    )
+
+
+@login_required(login_url="catalogo:login")
+def mis_consultas(request):
+    if request.user.is_staff:
+        return redirect("catalogo:admin_consultas")
+
+    respuesta_admin = MensajeConsulta.objects.filter(
+        consulta_id=OuterRef("pk"),
+        remitente=MensajeConsulta.Remitente.ADMINISTRADOR,
+    )
+    consultas = ConsultaCliente.objects.filter(usuario=request.user).select_related(
+        "producto_interes"
+    ).annotate(respondida=Exists(respuesta_admin)).order_by("-fecha")
+    return render(request, "catalogo/mis_consultas.html", {"consultas": consultas})
+
+
+@login_required(login_url="catalogo:login")
+def cliente_consulta_detalle(request, consulta_id):
+    if request.user.is_staff:
+        return redirect("catalogo:admin_consultas")
+
+    consulta = get_object_or_404(
+        ConsultaCliente.objects.select_related("producto_interes"),
+        pk=consulta_id,
+        usuario=request.user,
+    )
+    form = MensajeConsultaForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        mensaje = form.save(commit=False)
+        mensaje.consulta = consulta
+        mensaje.autor = request.user
+        mensaje.remitente = MensajeConsulta.Remitente.CLIENTE
+        mensaje.save()
+        messages.success(request, "Tu mensaje se envió correctamente.")
+        return redirect("catalogo:cliente_consulta_detalle", consulta_id=consulta.pk)
+
+    return render(
+        request,
+        "catalogo/cliente_consulta_detalle.html",
+        {
+            "consulta": consulta,
+            "form": form,
+            "mensajes": consulta.mensajes.select_related("autor").all(),
+            "es_administrador": False,
+        },
+    )
 
 
 @user_passes_test(_es_administrador, login_url="catalogo:login")

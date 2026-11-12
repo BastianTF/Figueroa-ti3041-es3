@@ -9,6 +9,7 @@
             <h1>Administración de la ferretería</h1>
         </div>
         <div class="admin-actions">
+            <a class="btn btn-secondary" href="{% url 'catalogo:admin_consultas' %}">Consultas de clientes</a>
             <a class="btn btn-secondary" href="{% url 'catalogo:reporte_agregacion' %}">Reporte por categoría</a>
             <a class="btn btn-secondary" href="{% url 'catalogo:reporte_filtrado' %}">Stock crítico</a>
             <a class="btn btn-primary" href="{% url 'catalogo:admin_producto_nuevo' %}">+ Agregar producto</a>

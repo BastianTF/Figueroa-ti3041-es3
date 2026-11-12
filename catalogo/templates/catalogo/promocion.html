@@ -57,9 +57,10 @@
         <div class="campaign-quote-copy">
             <span class="kicker">Cuéntanos qué necesitas</span>
             <h2>Solicita tu cotización</h2>
-            <p>Completa el formulario y envíanos los detalles de tu compra o proyecto.</p>
+            <p>Inicia sesión con tu cuenta de cliente para enviar una consulta y revisar nuestra respuesta.</p>
             <a class="ver-link" href="{% url 'catalogo:catalogo' %}">Revisar productos antes de cotizar →</a>
         </div>
+        {% if user.is_authenticated %}
         <div class="campaign-form-card">
             <form method="post">
                 {% csrf_token %}
@@ -67,6 +68,13 @@
                 <button class="btn btn-primary" type="submit">Enviar solicitud</button>
             </form>
         </div>
+        {% else %}
+        <div class="campaign-form-card">
+            <p>Debes iniciar sesión con tu cuenta de cliente para enviar una consulta.</p>
+            <a class="btn btn-primary" href="{% url 'catalogo:login' %}?next={{ request.get_full_path|urlencode }}">Iniciar sesión</a>
+            <a class="btn btn-secondary" href="{% url 'catalogo:registro' %}?next={{ request.get_full_path|urlencode }}">Crear cuenta</a>
+        </div>
+        {% endif %}
     </section>
     {% endif %}
 

@@ -5,7 +5,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import ConsultaCliente, Producto
+from .models import ConsultaCliente, MensajeConsulta, Producto
 
 
 class CatalogoTests(TestCase):
@@ -29,13 +29,18 @@ class CatalogoTests(TestCase):
 			caracteristicas=["Peso: 16 oz"],
 		)
 
-	def test_inicio_lista_productos_desde_la_base_de_datos(self):
+	def test_inicio_muestra_resumen_y_enlaza_al_catalogo(self):
 		respuesta = self.client.get(reverse("catalogo:lista"))
 
 		self.assertEqual(respuesta.status_code, 200)
-		self.assertContains(respuesta, "Taladro de prueba")
-		self.assertContains(respuesta, "Martillo de prueba")
 		self.assertEqual(respuesta.context["total_productos"], 2)
+		self.assertContains(respuesta, reverse("catalogo:catalogo"))
+		self.assertNotContains(respuesta, "Taladro de prueba")
+		self.assertNotContains(respuesta, "Martillo de prueba")
+
+		respuesta_catalogo = self.client.get(reverse("catalogo:catalogo"))
+		self.assertContains(respuesta_catalogo, "Taladro de prueba")
+		self.assertContains(respuesta_catalogo, "Martillo de prueba")
 
 	def test_contador_de_visitas_se_incrementa_en_la_sesion(self):
 		respuesta = self.client.get(reverse("catalogo:lista_productos"))
@@ -45,11 +50,15 @@ class CatalogoTests(TestCase):
 		self.assertEqual(respuesta.context["visitas"], 2)
 
 	def test_contacto_guarda_consulta_y_muestra_confirmacion(self):
+		cliente = User.objects.create_user(
+			username="cliente-contacto",
+			password="test-password-123",
+			email="cliente@example.com",
+		)
+		self.client.force_login(cliente)
 		respuesta = self.client.post(
 			reverse("catalogo:contacto"),
 			{
-				"nombre": "Cliente",
-				"correo": "cliente@example.com",
 				"mensaje": "Quisiera más información.",
 				"producto_interes": self.producto.pk,
 			},
@@ -60,21 +69,83 @@ class CatalogoTests(TestCase):
 		self.assertContains(respuesta, "Nos pondremos en contacto pronto")
 		consulta = ConsultaCliente.objects.get()
 		self.assertEqual(consulta.producto_interes, self.producto)
+		self.assertEqual(consulta.usuario, cliente)
+		self.assertEqual(consulta.nombre, cliente.username)
+		self.assertEqual(consulta.correo, cliente.email)
+		self.assertEqual(consulta.mensajes.count(), 1)
+		self.assertEqual(consulta.mensajes.get().contenido, "Quisiera más información.")
 
 	def test_contacto_no_guarda_consulta_invalida(self):
+		cliente = User.objects.create_user(
+			username="cliente-invalido",
+			password="test-password-123",
+			email="cliente@example.com",
+		)
+		self.client.force_login(cliente)
 		respuesta = self.client.post(
 			reverse("catalogo:contacto"),
 			{
-				"nombre": "Cliente",
-				"correo": "correo-invalido",
-				"mensaje": "Consulta",
-				"producto_interes": "",
+				"mensaje": "",
+				"producto_interes": self.producto.pk,
 			},
 		)
 
 		self.assertEqual(respuesta.status_code, 200)
 		self.assertTemplateUsed(respuesta, "catalogo/contacto.html")
 		self.assertEqual(ConsultaCliente.objects.count(), 0)
+
+	def test_contacto_requiere_inicio_de_sesion(self):
+		respuesta = self.client.get(reverse("catalogo:contacto"))
+
+		self.assertRedirects(
+			respuesta,
+			f"{reverse('catalogo:login')}?next={reverse('catalogo:contacto')}",
+		)
+
+	def test_inicio_de_sesion_regresa_al_formulario_protegido(self):
+		cliente = User.objects.create_user(
+			username="cliente-login",
+			password="test-password-123",
+			email="cliente@example.com",
+		)
+
+		respuesta = self.client.post(
+			reverse("catalogo:login"),
+			{
+				"username": cliente.username,
+				"password": "test-password-123",
+				"next": reverse("catalogo:contacto"),
+			},
+		)
+
+		self.assertRedirects(respuesta, reverse("catalogo:contacto"))
+		self.assertEqual(
+			self.client.get(reverse("catalogo:contacto")).status_code,
+			200,
+		)
+
+	def test_administrador_ve_consultas_en_contacto_en_lugar_del_formulario(self):
+		ConsultaCliente.objects.create(
+			nombre="Cliente de prueba",
+			correo="cliente@example.com",
+			mensaje="Consulta por disponibilidad.",
+			producto_interes=self.producto,
+		)
+		administrador = User.objects.create_user(
+			username="admin-consultas",
+			password="test-password",
+			is_staff=True,
+		)
+		self.client.force_login(administrador)
+
+		respuesta = self.client.get(reverse("catalogo:contacto"))
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertTemplateUsed(respuesta, "catalogo/admin_consultas.html")
+		self.assertContains(respuesta, "Cliente de prueba")
+		self.assertContains(respuesta, "Consulta por disponibilidad.")
+		self.assertContains(respuesta, self.producto.nombre)
+		self.assertNotContains(respuesta, "Enviar Consulta")
 
 	def test_pagina_de_ofertas_muestra_productos_con_descuento(self):
 		respuesta = self.client.get(reverse("catalogo:ofertas"))
@@ -83,6 +154,41 @@ class CatalogoTests(TestCase):
 		self.assertContains(respuesta, "Taladro de prueba")
 		self.assertContains(respuesta, "-15%")
 		self.assertContains(respuesta, "$33.992")
+
+	def test_novedades_muestra_ocho_productos_mas_recientes(self):
+		for numero in range(9):
+			Producto.objects.create(
+				nombre=f"Novedad {numero}",
+				categoria="Herramientas",
+				precio=1000 + numero,
+				stock=1,
+			)
+
+		respuesta = self.client.get(reverse("catalogo:novedades"))
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertEqual(len(respuesta.context["productos"]), 8)
+		self.assertEqual(
+			list(respuesta.context["productos"].values_list("nombre", flat=True)),
+			[f"Novedad {numero}" for numero in reversed(range(9))][:8],
+		)
+		self.assertContains(respuesta, "Explorar todo el catálogo")
+
+	def test_pagina_de_servicios_enlaza_a_opciones_reales(self):
+		respuesta = self.client.get(reverse("catalogo:servicios"))
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertContains(respuesta, reverse("catalogo:promocion", args=["cotiza"]))
+		self.assertContains(respuesta, reverse("catalogo:contacto"))
+		self.assertContains(respuesta, reverse("catalogo:login"))
+		self.assertContains(respuesta, "Servicios para cada proyecto")
+
+	def test_menu_principal_enlaza_a_novedades_y_servicios(self):
+		respuesta = self.client.get(reverse("catalogo:lista"))
+
+		self.assertContains(respuesta, reverse("catalogo:novedades"))
+		self.assertContains(respuesta, reverse("catalogo:servicios"))
+		self.assertContains(respuesta, 'class="cart-icon"')
 
 	def test_tarjetas_de_inicio_enlazan_a_sus_paginas_promocionales(self):
 		respuesta = self.client.get(reverse("catalogo:lista"))
@@ -117,11 +223,15 @@ class CatalogoTests(TestCase):
 		self.assertContains(respuesta, "Consultar por calefacción")
 
 	def test_pagina_de_cotizacion_guarda_consulta(self):
+		cliente = User.objects.create_user(
+			username="cliente-cotizacion",
+			password="test-password-123",
+			email="cotizacion@example.com",
+		)
+		self.client.force_login(cliente)
 		respuesta = self.client.post(
 			reverse("catalogo:promocion", args=["cotiza"]),
 			{
-				"nombre": "Cliente",
-				"correo": "cliente@example.com",
 				"mensaje": "Necesito cotizar herramientas para mi taller.",
 				"producto_interes": self.producto.pk,
 			},
@@ -130,6 +240,19 @@ class CatalogoTests(TestCase):
 		self.assertEqual(respuesta.status_code, 200)
 		self.assertTemplateUsed(respuesta, "catalogo/gracias.html")
 		self.assertEqual(ConsultaCliente.objects.count(), 1)
+		self.assertEqual(ConsultaCliente.objects.get().usuario, cliente)
+
+	def test_pagina_de_cotizacion_requiere_inicio_de_sesion(self):
+		respuesta = self.client.post(
+			reverse("catalogo:promocion", args=["cotiza"]),
+			{"mensaje": "Consulta anónima"},
+		)
+
+		self.assertRedirects(
+			respuesta,
+			f"{reverse('catalogo:login')}?next={reverse('catalogo:promocion', args=['cotiza'])}",
+		)
+		self.assertEqual(ConsultaCliente.objects.count(), 0)
 
 	def test_promocion_desconocida_responde_404(self):
 		respuesta = self.client.get(reverse("catalogo:promocion", args=["desconocida"]))
@@ -250,6 +373,149 @@ class AdministracionProductosTests(TestCase):
 				respuesta = self.client.get(reverse(f"catalogo:{nombre_ruta}"))
 				self.assertEqual(respuesta.status_code, 302)
 				self.assertTrue(respuesta.url.startswith(reverse("catalogo:login")))
+
+	def test_admin_puede_ver_consultas_de_clientes(self):
+		ConsultaCliente.objects.create(
+			nombre="Cliente de prueba",
+			correo="cliente@example.com",
+			mensaje="Necesito información sobre este producto.",
+			producto_interes=self.producto,
+		)
+
+		respuesta = self.client.get(reverse("catalogo:admin_consultas"))
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertContains(respuesta, "Consultas de clientes")
+		self.assertContains(respuesta, "Cliente de prueba")
+		self.assertContains(respuesta, "cliente@example.com")
+		self.assertContains(respuesta, "Necesito información sobre este producto.")
+		self.assertContains(respuesta, self.producto.nombre)
+		self.assertContains(
+			self.client.get(reverse("catalogo:admin_panel")),
+			reverse("catalogo:admin_consultas"),
+		)
+
+	def test_consultas_requieren_acceso_de_administrador(self):
+		self.client.logout()
+
+		respuesta = self.client.get(reverse("catalogo:admin_consultas"))
+
+		self.assertRedirects(
+			respuesta,
+			f"{reverse('catalogo:login')}?next={reverse('catalogo:admin_consultas')}",
+		)
+
+	def test_administrador_puede_responder_una_consulta(self):
+		consulta = ConsultaCliente.objects.create(
+			nombre="Cliente de prueba",
+			correo="cliente@example.com",
+			mensaje="¿Está disponible?",
+			producto_interes=self.producto,
+		)
+
+		respuesta = self.client.get(
+			reverse("catalogo:admin_consulta_detalle", args=[consulta.pk])
+		)
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertContains(respuesta, "Enviar respuesta")
+
+		respuesta = self.client.post(
+			reverse("catalogo:admin_consulta_detalle", args=[consulta.pk]),
+			{"contenido": "Sí, está disponible."},
+		)
+
+		self.assertRedirects(
+			respuesta,
+			reverse("catalogo:admin_consulta_detalle", args=[consulta.pk]),
+		)
+		consulta.refresh_from_db()
+		self.assertEqual(consulta.mensajes.count(), 1)
+		mensaje = consulta.mensajes.get()
+		self.assertEqual(mensaje.contenido, "Sí, está disponible.")
+		self.assertEqual(mensaje.remitente, MensajeConsulta.Remitente.ADMINISTRADOR)
+
+	def test_cliente_solo_ve_sus_consultas_y_respuestas(self):
+		cliente = User.objects.create_user(
+			username="cliente-consultas",
+			password="test-password-123",
+			email="cliente@example.com",
+		)
+		consulta_cliente = ConsultaCliente.objects.create(
+			nombre=cliente.username,
+			correo=cliente.email,
+			mensaje="Mi consulta",
+			usuario=cliente,
+		)
+		MensajeConsulta.objects.create(
+			consulta=consulta_cliente,
+			autor=cliente,
+			remitente=MensajeConsulta.Remitente.CLIENTE,
+			contenido="Mi consulta",
+		)
+		MensajeConsulta.objects.create(
+			consulta=consulta_cliente,
+			remitente=MensajeConsulta.Remitente.ADMINISTRADOR,
+			contenido="Mi respuesta",
+		)
+		ConsultaCliente.objects.create(
+			nombre="Otro cliente",
+			correo="otro@example.com",
+			mensaje="Consulta privada",
+		)
+		self.client.force_login(cliente)
+
+		respuesta = self.client.get(reverse("catalogo:mis_consultas"))
+
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertContains(respuesta, "Mi consulta")
+		self.assertNotContains(respuesta, "Consulta privada")
+
+		respuesta = self.client.get(
+			reverse("catalogo:cliente_consulta_detalle", args=[consulta_cliente.pk])
+		)
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertContains(respuesta, "Mi consulta")
+		self.assertContains(respuesta, "Mi respuesta")
+		self.assertContains(respuesta, "chat-message--admin")
+
+	def test_cliente_puede_responder_en_el_chat_y_no_acceder_a_otro(self):
+		cliente = User.objects.create_user(
+			username="cliente-chat",
+			password="test-password-123",
+			email="chat@example.com",
+		)
+		otra_cuenta = User.objects.create_user(
+			username="otro-chat",
+			password="test-password-123",
+			email="otro@example.com",
+		)
+		consulta = ConsultaCliente.objects.create(
+			nombre=cliente.username,
+			correo=cliente.email,
+			mensaje="Tengo una duda.",
+			usuario=cliente,
+		)
+		self.client.force_login(cliente)
+
+		respuesta = self.client.post(
+			reverse("catalogo:cliente_consulta_detalle", args=[consulta.pk]),
+			{"contenido": "¿Me pueden ayudar?"},
+		)
+
+		self.assertRedirects(
+			respuesta,
+			reverse("catalogo:cliente_consulta_detalle", args=[consulta.pk]),
+		)
+		mensaje = consulta.mensajes.get()
+		self.assertEqual(mensaje.remitente, MensajeConsulta.Remitente.CLIENTE)
+		self.assertEqual(mensaje.autor, cliente)
+
+		consulta.usuario = otra_cuenta
+		consulta.save(update_fields=["usuario"])
+		respuesta = self.client.get(
+			reverse("catalogo:cliente_consulta_detalle", args=[consulta.pk])
+		)
+		self.assertEqual(respuesta.status_code, 404)
 
 	def test_crear_producto_con_formulario(self):
 		respuesta = self.client.post(

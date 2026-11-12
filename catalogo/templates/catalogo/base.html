@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>{% block titulo %}Ferreterías RANCO{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'catalogo/estilos.css' %}?v=ofertas-slider-ranco-1">
+    <link rel="stylesheet" href="{% static 'catalogo/estilos.css' %}?v=cart-icon-1">
 </head>
 <body>
     <header class="market-header">
@@ -26,8 +26,8 @@
                     </button>
                     <a href="{% url 'catalogo:ofertas' %}">Ofertas</a>
                     <a href="{% url 'catalogo:contacto' %}">Contacto</a>
-                    <a href="#">Nuevo en Ferretería</a>
-                    <a href="#">Servicios</a>
+                    <a href="{% url 'catalogo:novedades' %}">Nuevo en Ferretería</a>
+                    <a href="{% url 'catalogo:servicios' %}">Servicios</a>
                     {% if user.is_staff %}
                         <a href="{% url 'catalogo:reporte_agregacion' %}">Reporte Categorías</a>
                         <a href="{% url 'catalogo:reporte_filtrado' %}">Stock Crítico</a>
@@ -36,20 +36,27 @@
             </div>
 
             <div class="account-actions">
-                <a href="{% url 'catalogo:carrito' %}" class="cart-link">
-                    🛒 Carrito
+                <a href="{% url 'catalogo:carrito' %}" class="cart-link account-button account-button--cart" aria-label="Carrito de compras">
+                    <svg class="cart-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h8.9a2 2 0 0 0 1.9-1.5L22 8H6"></path>
+                        <circle cx="10" cy="20" r="1"></circle>
+                        <circle cx="18" cy="20" r="1"></circle>
+                    </svg>
+                    <span>Carrito</span>
                     {% if cantidad_carrito %}<span class="cart-badge">{{ cantidad_carrito }}</span>{% endif %}
                 </a>
                 {% if user.is_authenticated %}
                     <span class="user-greeting">Hola, {{ user.username }}</span>
                     {% if user.is_staff %}
                         <span class="user-role">Admin</span>
-                        <a href="{% url 'catalogo:admin_panel' %}" class="login-link">Administrar</a>
+                        <a href="{% url 'catalogo:admin_panel' %}" class="login-link account-button">Administrar</a>
+                    {% else %}
+                        <a href="{% url 'catalogo:mis_consultas' %}" class="login-link account-button">Mis consultas</a>
                     {% endif %}
-                    <a href="{% url 'catalogo:logout' %}" class="login-link">Cerrar sesión</a>
+                    <a href="{% url 'catalogo:logout' %}" class="login-link account-button account-button--muted">Cerrar sesión</a>
                 {% else %}
-                    <a href="{% url 'catalogo:login' %}" class="login-link">Iniciar sesión</a>
-                    <a href="{% url 'catalogo:registro' %}" class="register-link">Crear cuenta</a>
+                    <a href="{% url 'catalogo:login' %}" class="login-link account-button">Iniciar sesión</a>
+                    <a href="{% url 'catalogo:registro' %}" class="register-link account-button account-button--primary">Crear cuenta</a>
                 {% endif %}
             </div>
         </div>

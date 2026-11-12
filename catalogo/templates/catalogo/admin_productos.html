@@ -8,15 +8,22 @@
         <div class="admin-actions"><a class="btn btn-secondary" href="{% url 'catalogo:admin_panel' %}">Ver ventas</a><a class="btn btn-primary" href="{% url 'catalogo:admin_producto_nuevo' %}">+ Agregar producto</a></div>
     </div>
     <div class="admin-table-wrap">
-        <table class="admin-table">
+        <table class="admin-table admin-table--products">
             <thead><tr><th>Imagen</th><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr></thead>
             <tbody>
             {% for producto in productos %}
                 <tr>
-                    <td><img class="admin-product-image" src="{{ producto.imagen }}" alt="{{ producto.nombre }}"></td>
-                    <td>{{ producto.nombre }}</td><td>{{ producto.categoria }}</td><td>${{ producto.precio|precio }}</td>
-                    <td><span class="stock {% if producto.stock == 0 %}stock--red{% endif %}">{{ producto.stock }}</span></td>
-                    <td class="admin-row-actions"><a class="ver-link" href="{% url 'catalogo:admin_producto_editar' producto.id %}">Editar / stock</a><a class="danger-link" href="{% url 'catalogo:admin_producto_eliminar' producto.id %}">Eliminar</a></td>
+                    <td data-label="Imagen"><img class="admin-product-image" src="{{ producto.imagen }}" alt="{{ producto.nombre }}"></td>
+                    <td data-label="Producto">{{ producto.nombre }}</td>
+                    <td data-label="Categoría">{{ producto.categoria }}</td>
+                    <td data-label="Precio">${{ producto.precio|precio }}</td>
+                    <td data-label="Stock"><span class="stock {% if producto.stock == 0 %}stock--red{% endif %}">{{ producto.stock }}</span></td>
+                    <td data-label="Acciones">
+                        <div class="admin-row-actions">
+                            <a class="admin-action-link" href="{% url 'catalogo:admin_producto_editar' producto.id %}">Editar</a>
+                            <a class="admin-action-link admin-action-link--danger" href="{% url 'catalogo:admin_producto_eliminar' producto.id %}">Eliminar</a>
+                        </div>
+                    </td>
                 </tr>
             {% endfor %}
             </tbody>

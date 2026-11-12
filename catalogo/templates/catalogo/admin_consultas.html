@@ -1,0 +1,38 @@
+{% extends "catalogo/base.html" %}
+{% block titulo %}Consultas de clientes{% endblock %}
+{% block contenido %}
+<div class="admin-page">
+    <div class="admin-heading">
+        <div>
+            <span class="kicker">Panel privado</span>
+            <h1>Consultas de clientes</h1>
+        </div>
+        <div class="admin-actions">
+            <a class="btn btn-secondary" href="{% url 'catalogo:admin_panel' %}">Volver a administración</a>
+        </div>
+    </div>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr><th>Fecha</th><th>Cliente</th><th>Correo</th><th>Producto de interés</th><th>Mensaje</th><th>Estado</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for consulta in consultas %}
+                    <tr>
+                        <td>{{ consulta.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>{{ consulta.nombre }}</td>
+                        <td><a href="mailto:{{ consulta.correo }}">{{ consulta.correo }}</a></td>
+                        <td>{{ consulta.producto_interes|default:"No especificado" }}</td>
+                        <td>{{ consulta.mensaje|linebreaksbr }}</td>
+                        <td>{% if consulta.respondida %}Respondida{% else %}Pendiente{% endif %}</td>
+                        <td><a class="btn btn-secondary" href="{% url 'catalogo:admin_consulta_detalle' consulta.id %}">Revisar y responder</a></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7">Todavía no hay consultas de clientes.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
